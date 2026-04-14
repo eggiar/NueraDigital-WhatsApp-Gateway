@@ -1,0 +1,9 @@
+{
+  "name": "nueradigital-whatsapp-gateway",
+  "version": "1.0.0",
+  "description": "WhatsApp Gateway SaaS",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ]
+}

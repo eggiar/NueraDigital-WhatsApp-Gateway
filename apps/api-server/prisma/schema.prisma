@@ -1,0 +1,237 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  status        String         @default("ACTIVE") // ACTIVE, SUSPENDED
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  roles         UserRole[]
+  apiKeys       ApiKey[]
+  devices       Device[]
+  contacts      Contact[]
+  autoReplies   AutoReplyRule[]
+  aiConfigs     AiConfig[]
+  broadcasts    BroadcastJob[]
+  webhooks      Webhook[]
+  subscriptions Subscription[]
+  transactions  Transaction[]
+  usageLogs     UsageLog[]
+}
+
+model Role {
+  id    String     @id @default(uuid())
+  name  String     @unique // superadmin, admin, user
+  users UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  userId    String
+  key       String   @unique
+  lastUsed  DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Device {
+  id          String    @id @default(uuid())
+  userId      String
+  name        String
+  phone       String?
+  status      String    @default("DISCONNECTED") // CONNECTED, DISCONNECTED
+  sessionPath String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    Message[]
+  groups      Group[]
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  deviceId  String
+  to        String
+  type      String   // TEXT, IMAGE, VIDEO, DOCUMENT
+  content   String   @db.Text
+  status    String   @default("PENDING") // PENDING, SENT, FAILED
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  phone     String
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, phone])
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  deviceId    String
+  jid         String
+  name        String
+  memberCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, jid])
+}
+
+model AutoReplyRule {
+  id        String   @id @default(uuid())
+  userId    String
+  keyword   String
+  response  String   @db.Text
+  isAI      Boolean  @default(false)
+  schedule  String?  // cron string or null
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AiConfig {
+  id        String   @id @default(uuid())
+  userId    String
+  provider  String   // openai, openrouter, gemini
+  apiKey    String   // encrypted key
+  model     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+model BroadcastJob {
+  id         String               @id @default(uuid())
+  userId     String
+  name       String
+  status     String               @default("DRAFT") // DRAFT, RUNNING, COMPLETED, FAILED
+  sentCount  Int                  @default(0)
+  failCount  Int                  @default(0)
+  createdAt  DateTime             @default(now())
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipients BroadcastRecipient[]
+}
+
+model BroadcastRecipient {
+  id        String       @id @default(uuid())
+  jobId     String
+  phone     String
+  status    String       @default("PENDING") // PENDING, SENT, FAILED
+  sentAt    DateTime?
+  job       BroadcastJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model Webhook {
+  id        String       @id @default(uuid())
+  userId    String
+  url       String
+  events    String       // JSON array of events like ["message.received", "status.update"]
+  secret    String?
+  createdAt DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs      WebhookLog[]
+}
+
+model WebhookLog {
+  id         String   @id @default(uuid())
+  webhookId  String
+  event      String
+  payload    String   @db.LongText
+  statusCode Int?
+  createdAt  DateTime @default(now())
+  webhook    Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+}
+
+model Plan {
+  id           String         @id @default(uuid())
+  name         String
+  price        Float
+  deviceLimit  Int
+  msgLimit     Int
+  features     String         // JSON format
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  subs         Subscription[]
+  transactions Transaction[]
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  userId    String
+  planId    String
+  startAt   DateTime
+  expiredAt DateTime
+  status    String   @default("ACTIVE") // ACTIVE, EXPIRED, CANCELLED
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      Plan     @relation(fields: [planId], references: [id])
+}
+
+model Transaction {
+  id              String    @id @default(uuid())
+  userId          String
+  planId          String
+  amount          Float
+  status          String    @default("PENDING") // PENDING, PAID, FAILED
+  midtransOrderId String?   @unique
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            Plan      @relation(fields: [planId], references: [id])
+  invoices        Invoice[]
+}
+
+model Invoice {
+  id            String      @id @default(uuid())
+  transactionId String
+  pdfUrl        String?
+  paidAt        DateTime?
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model UsageLog {
+  id       String   @id @default(uuid())
+  userId   String
+  deviceId String?
+  msgCount Int      @default(0)
+  date     DateTime @db.Date // to keep track per day
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId, date])
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   @db.LongText
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

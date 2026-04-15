@@ -34,16 +34,27 @@ Aplikasi berjalan sebagai Monorepo (npm workspaces). Lihat diagram utuh dan doku
    ```
 
 4. **Jalankan Instalasi dan Migrasi Prisma**
+   Karena ini sistem Monorepo, Prisma membutuhkan akses ke file `.env`. Solusi termudah adalah menyalin `.env` dari root ke folder `api-server`:
    ```bash
+   # Masuk ke folder API (Backend)
    cd apps/api-server
+   
+   # (Linux/Mac) Salin file .env dari root
+   cp ../../.env .env
+   # atau (Windows CMD/PowerShell)
+   # copy ..\..\.env .env
+
    npx prisma generate
    npx prisma db push
+   
+   # Kembali ke folder root (opsional)
+   cd ../..
    ```
 
 5. **Jalankan Aplikasi Seluruhnya**
    Pada direktori root (satu terminal untuk masing-masing):
-   - Backend: `npm --workspace=apps/api-server run dev`
-   - Frontend: `npm --workspace=apps/dashboard run dev`
+   - Backend: `npm --workspace=api-server run dev`
+   - Frontend: `npm --workspace=dashboard run dev`
 
 ## Deployment di VPS (Production)
 Jalankan file `.sh` di VPS kosong Ubuntu 22.04 menggunakan skrip dari `scripts/setup-vps.sh` — dan cukup jalankan `docker compose up -d` untuk memicu NGINX, Container Apps, Redis, dan Database secara bersamaan.

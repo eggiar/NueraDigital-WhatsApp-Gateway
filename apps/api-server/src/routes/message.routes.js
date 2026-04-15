@@ -1,11 +1,18 @@
 const express = require('express');
-const { sendMessage, sendGroupMessage, sendMediaMessage, sendStatusMessage } = require('../controllers/message.controller');
+const {
+  getMessages,
+  sendMessage,
+  sendGroupMessage,
+  sendMediaMessage,
+  sendStatusMessage
+} = require('../controllers/message.controller');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
 
 router.use(auth);
 
+router.get('/', getMessages);
 router.post('/send', sendMessage);
 router.post('/send-group', sendGroupMessage);
 router.post('/send-media', sendMediaMessage);

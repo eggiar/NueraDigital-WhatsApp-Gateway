@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import api, { apiGetData } from '@/lib/api';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -55,8 +55,7 @@ export default function AdminSystemPage() {
   const { data: systemConfigs = [] } = useQuery<SystemConfig[]>({
     queryKey: ['system-configs'],
     queryFn: async () => {
-      const res = await api.get('/admin/system-config');
-      const data: SystemConfig[] = res.data;
+      const data = await apiGetData<SystemConfig[]>('/admin/system-config');
       const map: Record<string, string> = {};
       data.forEach(c => { map[c.key] = c.value; });
       setConfigs(map);

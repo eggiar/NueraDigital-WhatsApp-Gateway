@@ -55,3 +55,34 @@ exports.upsertAiConfig = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Test AI config presence
+// @route   POST /api/ai-config/test
+exports.testAiConfig = async (req, res, next) => {
+  try {
+    const { provider } = req.body;
+
+    const config = await prisma.aiConfig.findFirst({
+      where: {
+        userId: req.user.id,
+        ...(provider ? { provider } : {})
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    if (!config) {
+      return res.status(404).json({ success: false, error: 'AI config not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        provider: config.provider,
+        model: config.model,
+        connected: true
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

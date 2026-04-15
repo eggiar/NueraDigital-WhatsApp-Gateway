@@ -1,11 +1,12 @@
 "use client";
 
+import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import api from '@/lib/api';
+import api, { apiGetData } from '@/lib/api';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -36,54 +37,60 @@ const MODEL_OPTIONS: Record<string, string[]> = {
 };
 
 const PROVIDER_INFO: Record<string, { name: string; desc: string; freeNote?: string }> = {
-  openai: { name: 'OpenAI', desc: 'GPT-4o, GPT-3.5 — Performa terbaik' },
-  openrouter: { name: 'OpenRouter', desc: 'Akses 100+ model AI — Ada pilihan gratis', freeNote: 'Ada model gratis!' },
-  gemini: { name: 'Google Gemini', desc: 'Model Google — Gratis tier tersedia', freeNote: 'Gratis hingga limit tertentu' },
+  openai: { name: 'OpenAI', desc: 'GPT-4o, GPT-3.5 - Performa terbaik' },
+  openrouter: { name: 'OpenRouter', desc: 'Akses 100+ model AI - Ada pilihan gratis', freeNote: 'Ada model gratis' },
+  gemini: { name: 'Google Gemini', desc: 'Model Google - Gratis tier tersedia', freeNote: 'Gratis hingga limit tertentu' },
 };
 
 interface AIConfig {
-  id?: string;
+  id: string;
   provider: string;
+  apiKey?: string;
   model: string;
-  systemPrompt?: string;
 }
 
 export default function AISettingsPage() {
   const t = useTranslations('AISettings');
   const queryClient = useQueryClient();
 
-  const { data: config } = useQuery<AIConfig>({
+  const { data: configs = [] } = useQuery<AIConfig[]>({
     queryKey: ['ai-config'],
-    queryFn: async () => (await api.get('/ai-config')).data,
+    queryFn: async () => apiGetData<AIConfig[]>('/ai-config'),
   });
 
   const saveMutation = useMutation({
     mutationFn: (data: z.infer<typeof aiConfigSchema>) => api.put('/ai-config', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-config'] });
+      form.reset({ ...form.getValues(), apiKey: '' });
       toast.success('Konfigurasi AI berhasil disimpan');
     },
     onError: (error: any) => toast.error(error.response?.data?.error || 'Gagal menyimpan'),
   });
 
   const testMutation = useMutation({
-    mutationFn: () => api.post('/ai-config/test'),
+    mutationFn: (provider: string) => api.post('/ai-config/test', { provider }),
     onSuccess: () => toast.success('Koneksi AI berhasil!'),
-    onError: () => toast.error('Koneksi AI gagal. Periksa API key Anda.'),
+    onError: (error: any) => toast.error(error.response?.data?.error || 'Koneksi AI gagal'),
   });
 
   const form = useForm<z.infer<typeof aiConfigSchema>>({
     resolver: zodResolver(aiConfigSchema),
     defaultValues: {
-      provider: (config?.provider as any) || 'gemini',
+      provider: 'gemini',
       apiKey: '',
-      model: config?.model || 'gemini-1.5-flash',
-      systemPrompt: config?.systemPrompt || 'Kamu adalah asisten customer service yang ramah dan membantu.',
+      model: 'gemini-1.5-flash',
+      systemPrompt: 'Kamu adalah asisten customer service yang ramah dan membantu.',
     },
   });
 
   const selectedProvider = form.watch('provider');
   const models = MODEL_OPTIONS[selectedProvider] || [];
+  const currentConfig = configs.find((item) => item.provider === selectedProvider);
+
+  useEffect(() => {
+    form.setValue('model', currentConfig?.model || models[0] || '');
+  }, [currentConfig, form, models]);
 
   return (
     <div className="space-y-6">
@@ -107,10 +114,10 @@ export default function AISettingsPage() {
                   <div>
                     <CardTitle>Pengaturan AI Auto-Reply</CardTitle>
                     <CardDescription>
-                      {config?.provider ? (
+                      {currentConfig ? (
                         <span className="flex items-center gap-1 text-green-600">
                           <CheckCircle className="h-3 w-3" />
-                          {t('connected')} — {config.provider} / {config.model}
+                          {t('connected')} - {currentConfig.provider} / {currentConfig.model}
                         </span>
                       ) : t('notConfigured')}
                     </CardDescription>
@@ -119,7 +126,7 @@ export default function AISettingsPage() {
               </CardHeader>
               <CardContent>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-4">
+                  <form onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))} className="space-y-4">
                     <FormField control={form.control} name="provider" render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t('provider')}</FormLabel>
@@ -128,18 +135,14 @@ export default function AISettingsPage() {
                           <SelectContent>
                             {Object.entries(PROVIDER_INFO).map(([key, info]) => (
                               <SelectItem key={key} value={key}>
-                                <div className="flex items-center gap-2">
-                                  {info.name}
-                                  {info.freeNote && (
-                                    <Badge variant="secondary" className="text-xs py-0">{info.freeNote}</Badge>
-                                  )}
-                                </div>
+                                {info.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        {selectedProvider && (
-                          <p className="text-xs text-muted-foreground">{PROVIDER_INFO[selectedProvider].desc}</p>
+                        <p className="text-xs text-muted-foreground">{PROVIDER_INFO[selectedProvider].desc}</p>
+                        {currentConfig?.apiKey && (
+                          <p className="text-xs text-muted-foreground">API key tersimpan: {currentConfig.apiKey}</p>
                         )}
                         <FormMessage />
                       </FormItem>
@@ -155,7 +158,9 @@ export default function AISettingsPage() {
                             {...field}
                           />
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">API key tidak akan ditampilkan setelah disimpan</p>
+                        <p className="text-xs text-muted-foreground">
+                          Isi hanya saat ingin menyimpan atau mengganti API key.
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -166,8 +171,8 @@ export default function AISettingsPage() {
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                           <SelectContent>
-                            {models.map((m) => (
-                              <SelectItem key={m} value={m}>{m}</SelectItem>
+                            {models.map((model) => (
+                              <SelectItem key={model} value={model}>{model}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -193,7 +198,12 @@ export default function AISettingsPage() {
                       <Button type="submit" disabled={saveMutation.isPending}>
                         {saveMutation.isPending ? '...' : t('save')}
                       </Button>
-                      <Button type="button" variant="outline" onClick={() => testMutation.mutate()} disabled={testMutation.isPending}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => testMutation.mutate(selectedProvider)}
+                        disabled={testMutation.isPending}
+                      >
                         {testMutation.isPending ? '...' : t('testConnection')}
                       </Button>
                     </div>
@@ -207,14 +217,14 @@ export default function AISettingsPage() {
             {Object.entries(PROVIDER_INFO).map(([key, info]) => (
               <Card key={key}>
                 <CardHeader>
-                  <CardTitle className="text-base">{info.name}</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {info.name}
+                    {info.freeNote && <Badge variant="secondary">{info.freeNote}</Badge>}
+                  </CardTitle>
                   <CardDescription>{info.desc}</CardDescription>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
                   <p>Model tersedia: {MODEL_OPTIONS[key].join(', ')}</p>
-                  {info.freeNote && (
-                    <Badge variant="secondary" className="mt-2">{info.freeNote}</Badge>
-                  )}
                 </CardContent>
               </Card>
             ))}

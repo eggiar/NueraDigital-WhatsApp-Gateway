@@ -53,6 +53,7 @@ const subscriptionRoutes = require('./routes/subscription.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const adminRoutes = require('./routes/admin.routes');
 const usageRoutes = require('./routes/usage.routes');
+const invoiceRoutes = require('./routes/invoice.routes');
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
@@ -69,6 +70,7 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/usage', usageRoutes);
+app.use('/api/invoices', invoiceRoutes);
 
 // Error Handler Middleware
 app.use(errorHandler);

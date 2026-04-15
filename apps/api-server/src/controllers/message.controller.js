@@ -16,6 +16,51 @@ const formatPhoneToJid = (phone) => {
 
 // @desc    Send Text Message
 // @route   POST /api/messages/send
+exports.getMessages = async (req, res, next) => {
+  try {
+    const where = {
+      device: {
+        userId: req.user.id
+      }
+    };
+
+    if (req.query.status) {
+      where.status = req.query.status.toUpperCase();
+    }
+
+    if (req.query.deviceId) {
+      where.deviceId = req.query.deviceId;
+    }
+
+    if (req.query.date) {
+      const start = new Date(req.query.date);
+      const end = new Date(req.query.date);
+      end.setDate(end.getDate() + 1);
+      where.createdAt = {
+        gte: start,
+        lt: end
+      };
+    }
+
+    const messages = await prisma.message.findMany({
+      where,
+      include: {
+        device: {
+          select: { id: true, name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200
+    });
+
+    res.status(200).json({ success: true, data: messages });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Send Text Message
+// @route   POST /api/messages/send
 exports.sendMessage = async (req, res, next) => {
   try {
     const { deviceId, to, message } = req.body;
@@ -225,4 +270,3 @@ exports.sendStatusMessage = async (req, res, next) => {
     next(error);
   }
 };
-

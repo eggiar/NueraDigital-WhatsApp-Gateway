@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { apiGetData } from '@/lib/api';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
@@ -26,10 +26,10 @@ interface Invoice {
 }
 
 const statusVariant: Record<string, 'default' | 'secondary' | 'destructive'> = {
-  paid: 'default',
-  settlement: 'default',
-  pending: 'secondary',
-  failed: 'destructive',
+  PAID: 'default',
+  SETTLEMENT: 'default',
+  PENDING: 'secondary',
+  FAILED: 'destructive',
 };
 
 export default function InvoicesPage() {
@@ -37,7 +37,7 @@ export default function InvoicesPage() {
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ['invoices'],
-    queryFn: async () => (await api.get('/invoices')).data,
+    queryFn: async () => apiGetData<Invoice[]>('/invoices'),
   });
 
   return (
@@ -84,7 +84,7 @@ export default function InvoicesPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[invoice.transaction.status] ?? 'secondary'}>
-                      {t(invoice.transaction.status as any) ?? invoice.transaction.status}
+                      {t(invoice.transaction.status.toLowerCase() as any) ?? invoice.transaction.status}
                     </Badge>
                   </TableCell>
                   <TableCell>

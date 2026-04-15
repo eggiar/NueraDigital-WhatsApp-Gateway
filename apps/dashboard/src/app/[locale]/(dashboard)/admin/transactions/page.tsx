@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { apiGetData } from '@/lib/api';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
@@ -24,11 +24,11 @@ interface Transaction {
 }
 
 const statusVariant: Record<string, 'default' | 'secondary' | 'destructive'> = {
-  settlement: 'default',
-  paid: 'default',
-  pending: 'secondary',
-  failed: 'destructive',
-  expired: 'destructive',
+  SETTLEMENT: 'default',
+  PAID: 'default',
+  PENDING: 'secondary',
+  FAILED: 'destructive',
+  EXPIRED: 'destructive',
 };
 
 export default function AdminTransactionsPage() {
@@ -36,7 +36,7 @@ export default function AdminTransactionsPage() {
 
   const { data: transactions = [], isLoading } = useQuery<Transaction[]>({
     queryKey: ['admin-transactions'],
-    queryFn: async () => (await api.get('/admin/transactions')).data,
+    queryFn: async () => apiGetData<Transaction[]>('/admin/transactions'),
   });
 
   const totalRevenue = transactions

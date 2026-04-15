@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from 'react';
+import { type ChangeEvent, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import api from '@/lib/api';
+import api, { apiGetData } from '@/lib/api';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Upload, Users } from 'lucide-react';
 
 const contactSchema = z.object({
   name: z.string().min(1),
@@ -42,10 +42,11 @@ export default function ContactsPage() {
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: contacts = [], isLoading } = useQuery<Contact[]>({
     queryKey: ['contacts'],
-    queryFn: async () => (await api.get('/contacts')).data,
+    queryFn: async () => apiGetData<Contact[]>('/contacts'),
   });
 
   const filtered = contacts.filter(c =>
@@ -78,6 +79,18 @@ export default function ContactsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contacts'] }),
   });
 
+  const importMutation = useMutation({
+    mutationFn: (contactsToImport: Array<z.infer<typeof contactSchema>>) =>
+      api.post('/contacts/import', { contacts: contactsToImport }),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      const created = response.data?.data?.created ?? 0;
+      const skipped = response.data?.data?.skipped ?? 0;
+      toast.success(`Import selesai: ${created} baru, ${skipped} duplikat dilewati`);
+    },
+    onError: (error: any) => toast.error(error.response?.data?.error || 'Gagal import kontak'),
+  });
+
   const addForm = useForm<z.infer<typeof contactSchema>>({
     resolver: zodResolver(contactSchema),
     defaultValues: { name: '', phone: '', notes: '' },
@@ -92,6 +105,52 @@ export default function ContactsPage() {
     editForm.reset({ name: contact.name, phone: contact.phone, notes: contact.notes ?? '' });
   };
 
+  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const rows = text
+      .split(/\r?\n/)
+      .map((row) => row.trim())
+      .filter(Boolean);
+
+    if (rows.length <= 1) {
+      toast.error('File CSV kosong atau tidak valid');
+      event.target.value = '';
+      return;
+    }
+
+    const headers = rows[0].split(',').map((header) => header.trim().toLowerCase());
+    const nameIndex = headers.indexOf('name');
+    const phoneIndex = headers.indexOf('phone');
+    const notesIndex = headers.indexOf('notes');
+
+    if (nameIndex === -1 || phoneIndex === -1) {
+      toast.error("CSV wajib punya kolom 'name' dan 'phone'");
+      event.target.value = '';
+      return;
+    }
+
+    const parsedContacts = rows.slice(1)
+      .map((row) => row.split(',').map((value) => value.trim()))
+      .map((columns) => ({
+        name: columns[nameIndex] || '',
+        phone: columns[phoneIndex] || '',
+        notes: notesIndex >= 0 ? columns[notesIndex] || '' : '',
+      }))
+      .filter((contact) => contact.name && contact.phone);
+
+    if (parsedContacts.length === 0) {
+      toast.error('Tidak ada kontak valid untuk diimport');
+      event.target.value = '';
+      return;
+    }
+
+    importMutation.mutate(parsedContacts);
+    event.target.value = '';
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -100,47 +159,60 @@ export default function ContactsPage() {
           <p className="text-muted-foreground">{t('subtitle')}</p>
         </div>
 
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              {t('addContact')}
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{t('addContact')}</DialogTitle></DialogHeader>
-            <Form {...addForm}>
-              <form onSubmit={addForm.handleSubmit((v) => createMutation.mutate(v))} className="space-y-4">
-                <FormField control={addForm.control} name="name" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('name')}</FormLabel>
-                    <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={addForm.control} name="phone" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('phone')}</FormLabel>
-                    <FormControl><Input placeholder="628123456789" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={addForm.control} name="notes" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('notes')}</FormLabel>
-                    <FormControl><Input placeholder="Catatan opsional..." {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <DialogFooter>
-                  <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? '...' : 'Simpan'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                {t('addContact')}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>{t('addContact')}</DialogTitle></DialogHeader>
+              <Form {...addForm}>
+                <form onSubmit={addForm.handleSubmit((v) => createMutation.mutate(v))} className="space-y-4">
+                  <FormField control={addForm.control} name="name" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('name')}</FormLabel>
+                      <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={addForm.control} name="phone" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('phone')}</FormLabel>
+                      <FormControl><Input placeholder="628123456789" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={addForm.control} name="notes" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('notes')}</FormLabel>
+                      <FormControl><Input placeholder="Catatan opsional..." {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <DialogFooter>
+                    <Button type="submit" disabled={createMutation.isPending}>
+                      {createMutation.isPending ? '...' : 'Simpan'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+          <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={importMutation.isPending}>
+            <Upload className="mr-2 h-4 w-4" />
+            {t('importCSV')}
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleImport}
+          />
+        </div>
       </div>
 
       <div className="flex items-center gap-2">

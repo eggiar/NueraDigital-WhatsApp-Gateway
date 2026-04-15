@@ -137,15 +137,38 @@ exports.getSystemConfigs = async (req, res, next) => {
 // @route   PUT /api/admin/system-config
 exports.updateSystemConfig = async (req, res, next) => {
     try {
-        const { key, value, description } = req.body;
-        
-        const config = await prisma.systemConfig.upsert({
-            where: { key },
-            update: { value, description },
-            create: { key, value, description }
-        });
+        const isSingleConfigPayload =
+            typeof req.body.key === 'string' &&
+            Object.prototype.hasOwnProperty.call(req.body, 'value');
 
-        res.status(200).json({ success: true, data: config });
+        if (isSingleConfigPayload) {
+            const { key, value, description } = req.body;
+
+            const config = await prisma.systemConfig.upsert({
+                where: { key },
+                update: { value, description },
+                create: { key, value, description }
+            });
+
+            return res.status(200).json({ success: true, data: config });
+        }
+
+        const entries = Object.entries(req.body || {});
+        if (entries.length === 0) {
+            return res.status(400).json({ success: false, error: 'No config values provided' });
+        }
+
+        const updatedConfigs = await prisma.$transaction(
+            entries.map(([key, value]) =>
+                prisma.systemConfig.upsert({
+                    where: { key },
+                    update: { value: String(value ?? '') },
+                    create: { key, value: String(value ?? '') }
+                })
+            )
+        );
+
+        res.status(200).json({ success: true, data: updatedConfigs });
     } catch (error) {
         next(error);
     }

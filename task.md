@@ -96,36 +96,36 @@
 - [x] **Dashboard:** Statistik utama (pesan, device, usage, revenue)
 - [x] **Devices:** Daftar device + QR modal (WebSocket) + status badge
 - [x] **Send Message:** Form kirim pesan (teks/image/video/dok) + pilih device
-- [ ] **Broadcast:** Wizard — upload CSV → preview → jadwal → monitoring
-- [ ] **Contacts:** CRUD kontak, import CSV
+- [x] **Broadcast:** Wizard — upload CSV → preview → jadwal → monitoring
+- [x] **Contacts:** CRUD kontak, import CSV
 - [x] **Groups:** Tampilkan grup per device
-- [ ] **Auto Reply:** Editor rule keyword + toggle AI mode
-- [ ] **AI Settings:** Input token per provider (OpenAI/OpenRouter/Gemini)
-- [ ] **Logs:** Tabel log pesan dengan filter (status, tanggal, device)
-- [ ] **Webhooks:** Daftar endpoint, log delivery, test kirim
+- [x] **Auto Reply:** Editor rule keyword + toggle AI mode
+- [x] **AI Settings:** Input token per provider (OpenAI/OpenRouter/Gemini)
+- [x] **Logs:** Tabel log pesan dengan filter (status, tanggal, device)
+- [x] **Webhooks:** Daftar endpoint, log delivery, test kirim
 - [x] **Billing:** Status langganan, usage meter, tombol upgrade
 - [x] **Pricing:** Halaman paket harga (dinamis dari DB) + checkout Midtrans
-- [ ] **Invoices:** Riwayat transaksi & download invoice
-- [ ] **Settings:** API key, SMTP (user), profil
-- [ ] **Admin Panel:** 
-  - [ ] Kelola semua user (suspend, ubah role, reset device)
-  - [ ] Monitor semua device (live status)
-  - [ ] Semua transaksi & revenue
-  - [ ] Edit paket harga (plans)
-  - [ ] Konfigurasi sistem (SMTP global, AI internal, maintenance)
+- [x] **Invoices:** Riwayat transaksi & download invoice
+- [x] **Settings:** API key, SMTP (user), profil
+- [x] **Admin Panel:** 
+  - [x] Kelola semua user (suspend, ubah role, reset device)
+  - [x] Monitor semua device (live status)
+  - [x] Semua transaksi & revenue
+  - [x] Edit paket harga (plans)
+  - [x] Konfigurasi sistem (SMTP global, AI internal, maintenance)
 
 ---
 
 ## 🚀 Phase 4: Deployment & Dokumentasi
-- [ ] Test `docker-compose up` — semua service jalan
-- [ ] Test end-to-end: register → QR scan → kirim pesan
-- [ ] Test billing: pilih paket → Midtrans sandbox → subscription aktif
-- [ ] Buat `docs/API.md` — referensi lengkap endpoint + cURL
-- [ ] Buat `docs/WEBHOOKS.md` — event types + payload contoh
-- [ ] Buat `docs/ARCHITECTURE.md` — diagram sistem
-- [ ] Buat `scripts/setup-vps.sh` — script install otomatis di VPS baru
-- [ ] Buat `README.md` — panduan run step-by-step
-- [ ] Panduan anti-banned (delay, quota, warm-up nomor)
+- [x] Test `docker-compose up` — semua service jalan
+- [x] Test end-to-end: register → QR scan → kirim pesan
+- [x] Test billing: pilih paket → Midtrans sandbox → subscription aktif
+- [x] Buat `docs/API.md` — referensi lengkap endpoint + cURL
+- [x] Buat `docs/WEBHOOKS.md` — event types + payload contoh
+- [x] Buat `docs/ARCHITECTURE.md` — diagram sistem
+- [x] Buat `scripts/setup-vps.sh` — script install otomatis di VPS baru
+- [x] Buat `README.md` — panduan run step-by-step
+- [x] Panduan anti-banned (delay, quota, warm-up nomor)
 
 ---
 

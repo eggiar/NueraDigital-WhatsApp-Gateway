@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/hooks/use-auth';
-import api from '@/lib/api';
+import api, { apiGetData } from '@/lib/api';
 import { toast } from 'sonner';
 import { useState } from 'react';
 
@@ -45,14 +45,14 @@ export default function SettingsPage() {
 
   const { data: apiKeys = [] } = useQuery<ApiKey[]>({
     queryKey: ['api-keys'],
-    queryFn: async () => (await api.get('/auth/api-keys')).data,
+    queryFn: async () => apiGetData<ApiKey[]>('/auth/api-keys'),
   });
 
   const profileMutation = useMutation({
     mutationFn: (data: z.infer<typeof profileSchema>) => api.put('/auth/profile', data),
     onSuccess: (res) => {
       toast.success('Profil berhasil diperbarui');
-      setAuth(res.data.user, localStorage.getItem('token')!);
+      setAuth(res.data.data, localStorage.getItem('token')!);
     },
   });
 
@@ -138,7 +138,7 @@ export default function SettingsPage() {
                     )} />
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">Role:</span>
-                      <Badge>{user?.role?.name}</Badge>
+                      <Badge>{user?.roles?.[0] ?? 'user'}</Badge>
                     </div>
                     <Button type="submit" disabled={profileMutation.isPending}>
                       {profileMutation.isPending ? '...' : t('save')}

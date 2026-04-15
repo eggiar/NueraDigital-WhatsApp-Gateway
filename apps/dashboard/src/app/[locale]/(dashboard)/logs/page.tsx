@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { apiGetData } from '@/lib/api';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
@@ -30,9 +30,9 @@ interface Message {
 interface Device { id: string; name: string; }
 
 const statusVariant: Record<string, 'default' | 'secondary' | 'destructive'> = {
-  sent: 'default',
-  failed: 'destructive',
-  pending: 'secondary',
+  SENT: 'default',
+  FAILED: 'destructive',
+  PENDING: 'secondary',
 };
 
 export default function LogsPage() {
@@ -40,19 +40,21 @@ export default function LogsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [deviceFilter, setDeviceFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
 
   const { data: devices = [] } = useQuery<Device[]>({
     queryKey: ['devices'],
-    queryFn: async () => (await api.get('/devices')).data,
+    queryFn: async () => apiGetData<Device[]>('/devices'),
   });
 
   const { data: messages = [], isLoading } = useQuery<Message[]>({
-    queryKey: ['messages', statusFilter, deviceFilter],
+    queryKey: ['messages', statusFilter, deviceFilter, dateFilter],
     queryFn: async () => {
       const params: Record<string, string> = {};
       if (statusFilter !== 'all') params.status = statusFilter;
       if (deviceFilter !== 'all') params.deviceId = deviceFilter;
-      return (await api.get('/messages', { params })).data;
+      if (dateFilter) params.date = dateFilter;
+      return apiGetData<Message[]>('/messages', { params });
     },
     refetchInterval: 10000,
   });
@@ -74,6 +76,12 @@ export default function LogsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
+        />
+        <Input
+          type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="w-44"
         />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-40">
@@ -135,7 +143,7 @@ export default function LogsPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[msg.status] ?? 'secondary'}>
-                      {t(msg.status as any) ?? msg.status}
+                      {t(msg.status.toLowerCase() as any) ?? msg.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">

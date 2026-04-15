@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import api from '@/lib/api';
+import api, { apiGetData } from '@/lib/api';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -19,9 +19,6 @@ import {
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -31,19 +28,17 @@ import { Plus, Pencil, Trash2, Bot } from 'lucide-react';
 
 const ruleSchema = z.object({
   keyword: z.string().min(1),
-  response: z.string().min(1),
-  matchType: z.enum(['exact', 'contains', 'startsWith']),
+  response: z.string().optional(),
   isAI: z.boolean().default(false),
-  isActive: z.boolean().default(true),
+  schedule: z.string().optional(),
 });
 
 interface AutoReplyRule {
   id: string;
   keyword: string;
   response: string;
-  matchType: string;
   isAI: boolean;
-  isActive: boolean;
+  schedule?: string | null;
 }
 
 export default function AutoReplyPage() {
@@ -54,7 +49,7 @@ export default function AutoReplyPage() {
 
   const { data: rules = [], isLoading } = useQuery<AutoReplyRule[]>({
     queryKey: ['auto-reply'],
-    queryFn: async () => (await api.get('/auto-reply')).data,
+    queryFn: async () => apiGetData<AutoReplyRule[]>('/auto-reply'),
   });
 
   const createMutation = useMutation({
@@ -82,15 +77,9 @@ export default function AutoReplyPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['auto-reply'] }),
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      api.put(`/auto-reply/${id}`, { isActive }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['auto-reply'] }),
-  });
-
   const addForm = useForm<z.infer<typeof ruleSchema>>({
     resolver: zodResolver(ruleSchema),
-    defaultValues: { keyword: '', response: '', matchType: 'contains', isAI: false, isActive: true },
+    defaultValues: { keyword: '', response: '', isAI: false, schedule: '' },
   });
 
   const editForm = useForm<z.infer<typeof ruleSchema>>({
@@ -102,9 +91,8 @@ export default function AutoReplyPage() {
     editForm.reset({
       keyword: rule.keyword,
       response: rule.response,
-      matchType: rule.matchType as any,
       isAI: rule.isAI,
-      isActive: rule.isActive,
+      schedule: rule.schedule ?? '',
     });
   };
 
@@ -118,26 +106,22 @@ export default function AutoReplyPage() {
             <FormMessage />
           </FormItem>
         )} />
-        <FormField control={form.control} name="matchType" render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t('matchType')}</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
-              <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-              <SelectContent>
-                <SelectItem value="contains">{t('contains')}</SelectItem>
-                <SelectItem value="exact">{t('exact')}</SelectItem>
-                <SelectItem value="startsWith">{t('startsWith')}</SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )} />
         <FormField control={form.control} name="response" render={({ field }) => (
           <FormItem>
             <FormLabel>{t('response')}</FormLabel>
             <FormControl>
               <Textarea placeholder="Halo! Silakan hubungi kami di..." className="min-h-[80px]" {...field} />
             </FormControl>
+            <p className="text-xs text-muted-foreground">
+              Kosongkan jika balasan sepenuhnya digenerate AI.
+            </p>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="schedule" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Jadwal Aktif (opsional)</FormLabel>
+            <FormControl><Input placeholder="08:00-17:00 WIB / cron string" {...field} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -200,10 +184,9 @@ export default function AutoReplyPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('keyword')}</TableHead>
-                <TableHead>{t('matchType')}</TableHead>
                 <TableHead>{t('response')}</TableHead>
                 <TableHead>{t('aiMode')}</TableHead>
-                <TableHead>{t('active')}</TableHead>
+                <TableHead>Jadwal</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -211,20 +194,14 @@ export default function AutoReplyPage() {
               {rules.map((rule) => (
                 <TableRow key={rule.id}>
                   <TableCell className="font-medium">{rule.keyword}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{rule.matchType}</Badge>
-                  </TableCell>
                   <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                    {rule.response}
+                    {rule.response || (rule.isAI ? 'AI generated response' : '-')}
                   </TableCell>
                   <TableCell>
                     {rule.isAI ? <Badge>AI</Badge> : <span className="text-muted-foreground text-xs">Manual</span>}
                   </TableCell>
                   <TableCell>
-                    <Switch
-                      checked={rule.isActive}
-                      onCheckedChange={(v) => toggleMutation.mutate({ id: rule.id, isActive: v })}
-                    />
+                    <span className="text-xs text-muted-foreground">{rule.schedule || '-'}</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
